@@ -29,19 +29,21 @@ This is an end-to-end Python-based Machine Learning and Deep Learning Stock Pric
 
 ```
 stock-price-predictor/
-├── data/                    # Directory for cached data and downloaded CSVs
-├── models/                  # Directory for saved trained models & scalers
-├── notebooks/               # For experimental notebooks (optional)
-├── reports/                 # Holds generated reports and PPTX files
-│   ├── project_report.md    # 10-15 pages equivalent comprehensive report
-│   └── presentation.pptx    # Generated PowerPoint slide deck
-├── app.py                   # Main Streamlit web application
-├── train_model.py           # Script to train and save ML/DL models
-├── predict.py               # Pipeline script for forecasting and inference
-├── utils.py                 # Helper functions (indicators, sentiment, formatting)
-├── generate_artifacts.py    # Script to programmatically compile report & PPTX presentation
-├── requirements.txt         # Project dependencies
-└── README.md                # Documentation and setup instructions
+|-- backend/                 # FastAPI API for Render deployment
+|-- frontend/                # Next.js dashboard for Vercel deployment
+|-- data/                    # Directory for cached data and downloaded CSVs
+|-- models/                  # Directory for saved trained models & scalers
+|-- reports/                 # Holds generated reports and PPTX files
+|   |-- project_report.md    # 10-15 pages equivalent comprehensive report
+|   `-- presentation.pptx    # Generated PowerPoint slide deck
+|-- app.py                   # Main Streamlit web application
+|-- train_model.py           # Script to train and save ML/DL models
+|-- predict.py               # Pipeline script for forecasting and inference
+|-- utils.py                 # Helper functions (indicators, sentiment, formatting)
+|-- generate_artifacts.py    # Script to programmatically compile report & PPTX presentation
+|-- render.yaml              # Render Blueprint configuration
+|-- requirements.txt         # Project dependencies
+`-- README.md                # Documentation and setup instructions
 ```
 
 ---
@@ -89,3 +91,48 @@ This launches a browser session where you can:
 - Run forecasts for 7, 15, or 30 days.
 - Download forecast tables as CSV.
 - Download compiled presentation and report documents.
+
+---
+
+## Vercel Frontend + Render Backend Deployment
+
+This repository now includes a deployable split:
+
+- `backend/`: FastAPI API for Render, reusing the existing ML utilities and saved models.
+- `frontend/`: Next.js dashboard for Vercel, calling the Render API.
+- `render.yaml`: Render Blueprint configuration for the backend service.
+
+### 1. Deploy Backend on Render
+
+1. Push this repository to GitHub.
+2. In Render, create a new Blueprint or Web Service from the GitHub repository.
+3. Render can read `render.yaml` automatically. If you configure manually:
+   - Build command: `pip install -r requirements.txt`
+   - Start command: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+   - Health check path: `/health`
+4. Copy the deployed Render URL, for example:
+   `https://stock-price-prediction-api.onrender.com`
+
+### 2. Deploy Frontend on Vercel
+
+1. Import the same GitHub repository into Vercel.
+2. Set the project root directory to `frontend`.
+3. Add this environment variable in Vercel:
+   - `NEXT_PUBLIC_API_BASE_URL`: your Render backend URL
+4. Deploy the Vercel project.
+
+### 3. Local Split Development
+
+Backend:
+```bash
+uvicorn backend.main:app --reload
+```
+
+Frontend:
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Set `frontend/.env.local` from `frontend/.env.example` when testing against a deployed backend.

@@ -13,6 +13,13 @@ ENV/
 
 .streamlit/secrets.toml
 
+node_modules/
+.next/
+.vercel/
+frontend/node_modules/
+frontend/.next/
+frontend/.vercel/
+
 data/
 *.csv
 *.log

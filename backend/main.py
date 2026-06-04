@@ -1,4 +1,6 @@
 import os
+import time
+from functools import lru_cache
 from typing import Literal
 
 import numpy as np
@@ -8,13 +10,12 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from predict import forecast_future_prices, load_models_and_scalers
-from train_model import train_models
 from utils import analyze_sentiment, calculate_indicators, generate_signals
 
 
 PERIODS = {"1y", "2y", "5y", "10y"}
 HORIZONS = {7, 15, 30}
+CACHE_SECONDS = int(os.getenv("STOCK_CACHE_SECONDS", "300"))
 FEATURE_COLUMNS = [
     "Open",
     "High",
@@ -90,7 +91,12 @@ def dataframe_records(df: pd.DataFrame) -> list[dict]:
     return clean_json(safe_df.where(pd.notnull(safe_df), None).to_dict(orient="records"))
 
 
-def fetch_stock_data(ticker: str, period: str) -> pd.DataFrame:
+def current_cache_bucket() -> int:
+    return int(time.time() // CACHE_SECONDS)
+
+
+@lru_cache(maxsize=64)
+def _fetch_stock_data_cached(ticker: str, period: str, cache_bucket: int) -> pd.DataFrame:
     if period not in PERIODS:
         raise HTTPException(status_code=400, detail="Unsupported period.")
 
@@ -106,10 +112,19 @@ def fetch_stock_data(ticker: str, period: str) -> pd.DataFrame:
     return df
 
 
+def fetch_stock_data(ticker: str, period: str) -> pd.DataFrame:
+    return _fetch_stock_data_cached(ticker, period, current_cache_bucket()).copy()
+
+
+@lru_cache(maxsize=64)
+def _analyze_sentiment_cached(ticker: str, cache_bucket: int) -> tuple[dict, ...]:
+    return tuple(analyze_sentiment(ticker))
+
+
 def load_metrics(ticker: str) -> list[dict]:
     metrics_path = os.path.join("models", ticker, "metrics.json")
     if not os.path.exists(metrics_path):
-        return {}
+        return []
 
     metrics_df = pd.read_json(metrics_path).T
     return dataframe_records(metrics_df.reset_index(names="model"))
@@ -155,7 +170,7 @@ def get_stock(
         )
         if not signal_df.empty
         else [],
-        "news": analyze_sentiment(ticker),
+        "news": list(_analyze_sentiment_cached(ticker, current_cache_bucket())),
         "metrics": load_metrics(ticker),
     }
 
@@ -172,6 +187,8 @@ def get_forecast(
 
     df = fetch_stock_data(ticker, period).dropna(subset=FEATURE_COLUMNS).reset_index(drop=True)
     try:
+        from predict import forecast_future_prices, load_models_and_scalers
+
         models, scalers = load_models_and_scalers(ticker)
         if not models:
             raise FileNotFoundError(f"No models loaded for {ticker}.")
@@ -192,6 +209,8 @@ def get_forecast(
 def train(request: TrainRequest) -> dict:
     ticker = normalize_ticker(request.ticker)
     try:
+        from train_model import train_models
+
         metrics = train_models(
             ticker=ticker,
             period=request.period,

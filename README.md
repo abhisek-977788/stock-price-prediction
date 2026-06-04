@@ -7,8 +7,8 @@ This is an end-to-end Python-based Machine Learning and Deep Learning Stock Pric
 ## Project Links
 
 - GitHub Repository: https://github.com/abhisek-977788/stock-price-prediction
-- Live Frontend: Add the Vercel deployment URL after the frontend is deployed.
-- Backend API: Add the Render service URL after the backend is deployed.
+- Live Frontend: https://frontend-eta-flax-29.vercel.app
+- Backend API: https://stock-price-prediction-api-g01r.onrender.com
 
 ---
 
